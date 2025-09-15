@@ -1,0 +1,36 @@
+Escrever um programa em OpenGL (usando apenas a primitiva de ponto e equação da reta 
+para desenhar a aresta) que, dado como entrada um objeto gráfico 2D no formato .obj, 
+construa a estrutura de dados winged-edge ou half-edge e renderize o objeto. Se desejável, 
+estenda o código line-equation-handling-obj. Linguagem de programação aberta (C, C++, Python, etc.).
+
+O programa deve, a partir de um prompt, permitir realizar as consultas abaixo:
+
+- Dado um face, listar as faces adjacentes.
+- Dada uma aresta, listar as faces adjacentes.
+- Dado um vértice, listar quais faces compartilham o vértice.
+- Dado um vértice, listar quais arestas compartilham o vértice.
+
+
+Components:
+    User (queries)
+        - User can read different OBJ files, one at a time.
+        - With a read OBJ, user can do queries.
+    Data structure and algorithms
+        - Contains Obj reader (polygon_from_obj())
+        - Half-edge DS and algorithms.
+    Renderer
+
+Half-edges:
+    A half-edge stores references to the vertex at its endpoint, to its twin,
+    to the incident face and as well references to the previous and next
+    half-edge along the same line. If a half-edge is representing a boundary
+    edge, then its face reference is null.
+
+    A vertex stores its position (X, Y, Z) and a reference to the half-edge
+    that uses the vertex as starting point. 
+
+    A face stores a reference to any of the surrounding half-edges.
+
+    Sources:
+    https://jerryyin.info/geometry-processing-algorithms/half-edge/
+    Paper "An Overview on Boundary Representation"
