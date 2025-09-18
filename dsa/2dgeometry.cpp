@@ -2,8 +2,9 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <utility>
 
-// Save the vertexes. Then, with the faces, generate the half-edges
+// Save the vertexes. Then, with faces, generate half-edges
 class TwoDHalfEdgeGeometry
 {
     struct vertex;
@@ -36,8 +37,6 @@ class TwoDHalfEdgeGeometry
         struct TwoDHalfEdgeGeometry::half_edge *he;
     };
 
-    
-
     unsigned int vx_id_ctr, he_id_ctr, fa_id_ctr;
     
     /* Half-edges unordered map stores just one of each half-edges pair of an edge.*/
@@ -55,7 +54,7 @@ class TwoDHalfEdgeGeometry
         vx_list[new_vx->id] = new_vx; 
     }
 
-    void new_half_edge(Vertex **point_to_thisvx, Face **point_to_thisfa)
+    HalfEdge *new_half_edge(Vertex **point_to_thisvx, Face **point_to_thisfa)
     {
         HalfEdge *new_he = new HalfEdge;
         new_he->id = he_id_ctr++;
@@ -65,6 +64,8 @@ class TwoDHalfEdgeGeometry
         new_he->prevhe = nullptr;
         new_he->twin = nullptr;
         he_list[new_he->id] = new_he; 
+
+        return new_he;
     }
 
     void new_face()
@@ -75,19 +76,23 @@ class TwoDHalfEdgeGeometry
         fa_list[new_fa->id] = new_fa; 
     }
 
-    /* 1. Save the vertexes; 2. Access the vertex by indexing the vector;
-    3. Create half-edge if not created;
-    4. Create its twin if not created;
-    5. If the half-edges are already exists, check if they need to be edited
-    (eg.: a new face using a vertex whose half-edges were already created)
-    6. Return to step 2 while there are remaining vertexes
+    /* Check if vertex v1 half-edge points to v2. If not, checks if
+    vertex v1 half-edge's twin's next points to v2. */
+    bool are_vx_connected(Vertex *v1, Vertex *v2)
+    {
+        if(v1->he == nullptr) return false;
+        else if(v1->he->vx == v2 or
+                v1->he->twin->nexthe->vx == v2) return true;
+    }
+
+    /* 1. Save the vertexes; 2. For each face, 
 
     Observations:
     - Vertex N position is given in indexes N-1 (x) and N (y) in vector
     */
     TwoDHalfEdgeGeometry(std::vector<double> vxs_pos, std::map<int, std::vector<int>> fa_vxs)
     {
-        vx_id_ctr = he_id_ctr = fa_id_ctr = 0;
+        vx_id_ctr = he_id_ctr = fa_id_ctr = 0; // Used to associate the components with an ID
 
         for (auto itr = vxs_pos.begin(); itr != vxs_pos.end(); itr += 2)
         {
@@ -97,43 +102,52 @@ class TwoDHalfEdgeGeometry
         for (auto itr = fa_vxs.begin(); itr != fa_vxs.end(); itr++)
         {
             new_face();
-
-            for(int i = 0; i < itr->second.size(); i++)
-            {
-                new_half_edge(nullptr, nullptr);
-            }
-
+            Face *hes_face = fa_unomap.at(itr->first - 1);
+            std::map<std::pair<int, int>, HalfEdge*> face_new_hes;
             
-            for (auto vxs_itr = itr->second.begin(); vxs_itr != itr->second.end(); vxs_itr++)
+            for (auto vxs_itr = itr->second.begin(); vxs_itr != itr->second.end();
+                vxs_itr++)
             {
-                Vertex *point_to = vx_unomap.at(
-                    vxs_itr + 1 == itr->second.end() ? *itr->second.begin() - 1 : *(vxs_itr + 1) - 1);
-                Face *hes_face = fa_unomap.at(itr->first - 1);
                 Vertex *actual_vx = vx_unomap.at(*vxs_itr - 1);
+                if(!are_vx_connected(actual_vx, vx_unomap.at(*vxs_itr)))
+                {
+                    int vx_id_point_to = 
+                        vxs_itr + 1 == itr->second.end() ? *itr->second.begin() - 1 : *(vxs_itr + 1) - 1;
+                    Vertex *point_to = vx_unomap.at(vx_id_point_to);
 
-                // The half-edge that starts at the current iteration vertex
-                HalfEdge *actual_vx_he = he_unomap.at(); // -> Use a half edge counter (0, 1, 2...)
+                    // The half-edge that begins at the current iteration vertex
+                    HalfEdge *actual_vx_he = new_half_edge(nullptr, nullptr); 
+                    actual_vx_he->fa = hes_face;
+                    actual_vx_he->vx = point_to;
+
+                    actual_vx_he->twin = new_half_edge(&actual_vx, nullptr);
+                    actual_vx_he->twin->twin = actual_vx_he;
+                    actual_vx_he->twin->vx = actual_vx;
+
+                    actual_vx->he = actual_vx_he;
+                    
+                    std::pair<int, int> p = std::pair<int, int>(*vxs_itr - 1, vx_id_point_to);
+                    face_new_hes.insert(std::make_pair(p, actual_vx_he));
+                } else {
+                    // The twin half edge which has a null face will now point to a face.
+                    actual_vx->he->twin->fa = hes_face;
+                }
+                
             }
-
-            // for (auto vxs_itr = itr->second.begin(); vxs_itr != itr->second.end(); vxs_itr++)
-            // {
-            //     Vertex *point_to = vx_list.at(
-            //         vxs_itr + 1 == itr->second.end() ? *itr->second.begin() : *(vxs_itr + 1) - 1);
-            //     Face *he_faces = fa_list.at(itr->first);
-            //     Vertex *actual_vx = vx_list.at(*vxs_itr - 1);
-
-            //     new_half_edge(&point_to,
-            //                  &he_faces);
+            for (auto vxs_itr = itr->second.begin(); vxs_itr != itr->second.end();
+                vxs_itr++)
+            {
+                // Set the previous and next half-edges for each newly created half-edge.
+                Vertex *actual_vx = vx_unomap.at(*vxs_itr - 1);
+                HalfEdge *actual_he = actual_vx->he;
                 
-            //     HalfEdge *last_he = he_list.back();
-            //     actual_vx->he = last_he;
-            //     // Twin of the newly created half-edge:
-            //     new_half_edge(&actual_vx, nullptr);
-                
-            // }
+                if(actual_he->nexthe == nullptr)
+                {
+                    // If nexthe was unset, also was prevhe 
+                    actual_he->nexthe = actual_he->vx->he;
+                    actual_he->prevhe = actual_he->twin->vx->he;
+                }
+            }
         }
-
     }
-
-
 };
