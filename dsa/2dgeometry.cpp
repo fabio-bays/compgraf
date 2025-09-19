@@ -27,6 +27,7 @@ class TwoDHalfEdgeGeometry
     struct half_edge
     {
         unsigned int id;
+        bool is_a_twin;
         struct TwoDHalfEdgeGeometry::vertex *vx;
         struct TwoDHalfEdgeGeometry::half_edge *nexthe;
         struct TwoDHalfEdgeGeometry::half_edge *prevhe;
@@ -67,9 +68,10 @@ class TwoDHalfEdgeGeometry
         new_he->twin = nullptr;
         if (!twin) 
         {
+            new_he->is_a_twin = false;
             new_he->id = he_id_ctr++;
             he_unomap[new_he->id] = new_he; 
-        }
+        } else new_he->is_a_twin = true;
         return new_he;
     }
 
@@ -91,11 +93,18 @@ class TwoDHalfEdgeGeometry
         else return nullptr;
     }
 
+    int get_he_id(HalfEdge *he)
+    {
+        if(he->is_a_twin) return he->twin->id;
+        else return he->id;
+    }
+
     public:
 
     /*
     Observations:
     - Vertex N position is given in indexes N-1 (x) and N (y) in vector
+    - Face N is mapped to N-1 in faces map
     */
     TwoDHalfEdgeGeometry(std::vector<double> vxs_pos, std::map<int, std::vector<int>> fa_vxs)
     {
@@ -220,28 +229,55 @@ class TwoDHalfEdgeGeometry
         return vxs;
     }
 
+    std::vector<int> get_vx_edges_id(int vx_id)
+    {
+        std::vector<int> vx_edges_id;
+        HalfEdge *he = vx_unomap.at(vx_id)->he;
+        HalfEdge *start_he = he;
+
+        do
+        {
+            vx_edges_id.push_back(get_he_id(he));
+            he = he->prevhe->twin;
+        } while (he != start_he);
+
+        return vx_edges_id;
+    }
+    // int get_edge_id_from_vxs_ids(int vx1_id, int vx2_id)
+    // {
+    //     HalfEdge *conn_he = get_vxconnection_he(vx_unomap.at(vx1_id), vx_unomap.at(vx2_id));
+        
+    //     if (conn_he == nullptr) return -1;
+    // }
+
+
 };
 
 int main(){
     /*obj:
     v 1 1
-    v 2 1
+    v 2 3
     v 3 2
     v 5 1
     f 2 1 3
     f 2 3 4*/
-    std::vector<double> vxpos = {1, 1, 2, 1, 3, 2, 5, 1};
+    std::vector<double> vxpos = {1, 1, 2, 3, 3, 2, 5, 1};
     std::map<int, std::vector<int>> famap;
     famap[1] = {2, 1, 3};
     famap[2] = {2, 3, 4};
     TwoDHalfEdgeGeometry geo = TwoDHalfEdgeGeometry(vxpos, famap);
 
     auto vxs = geo.get_vertexes();
-    for(auto i = vxs.begin(); i != vxs.end(); i++)
+    // for(auto i = vxs.begin(); i != vxs.end(); i++)
+    // {
+    //     std::cout << i->first << " pos: (" << i->second.first << ", " << i->second.second << ")\n";
+    // }
+    std::vector<int> ids = geo.get_vx_edges_id(1);
+    for(auto i = ids.begin(); i != ids.end(); i++)
     {
-        std::cout << i->first << " pos: (" << i->second.first << ", " << i->second.second << ")\n";
+        std::cout << *i << "\n";
     }
-    std::cout << "deu bom!";
+
 
     return 0;
 }
