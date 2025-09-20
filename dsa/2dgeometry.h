@@ -1,6 +1,0 @@
-#ifndef 2D_GEOMETRY_DEFINED
-#define 2D_GEOMETRY_DEFINED
-
-
-#endif
-
