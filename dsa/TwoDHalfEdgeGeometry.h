@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <map>
 #include <utility>
-#include <iostream>
 
 class TwoDHalfEdgeGeometry
 {
@@ -46,6 +45,8 @@ class TwoDHalfEdgeGeometry
     std::unordered_map<int, Vertex *> vx_unomap;
     std::unordered_map<int, HalfEdge *> he_unomap;
     std::unordered_map<int, Face *> fa_unomap;
+    
+    std::map<std::pair<int, int>, HalfEdge*> vx_conn_edges; // Will hold every vertex connection half-edge.
 
     void new_vertex(double x, double y)
     {
@@ -81,23 +82,25 @@ class TwoDHalfEdgeGeometry
         fa_unomap[new_fa->id] = new_fa; 
     }
 
-    /* Check if vertex v1 half-edge points to v2. If not, checks if
-    vertex v1 half-edge's twin's next points to v2. */
     HalfEdge *get_vxconnection_he(Vertex *v1, Vertex *v2)
     {
-        if(v1->he == nullptr) return nullptr;
-        else if(v1->he->vx == v2) return v1->he;
-
-        if(v1->he->twin->nexthe == nullptr) return nullptr;
-        else if(v1->he->twin->nexthe->vx == v2) return v1->he->twin->nexthe;
-
-        if(v2->he == nullptr) return nullptr;
-        else if (v2->he->vx == v1) return v2->he;
-
-        if(v2->he->twin->nexthe == nullptr) return nullptr;
-        else if(v2->he->twin->nexthe->vx == v1) return v2->he->twin->nexthe;
-
-        else return nullptr;
+        try
+        {
+            return vx_conn_edges.at(std::make_pair(v1->id, v2->id));
+        }
+        catch(const std::out_of_range& e)
+        {
+            try
+            {
+                return vx_conn_edges.at(std::make_pair(v2->id, v1->id));
+            }
+            catch(const std::exception& e)
+            {
+                return nullptr;
+            }
+            
+        }
+        
     }
 
     public:
@@ -105,7 +108,6 @@ class TwoDHalfEdgeGeometry
     /*
     Observations:
     - Vertex N position is given in indexes N-1 (x) and N (y) in vector
-    - Face N is mapped to N-1 in faces map
     */
     TwoDHalfEdgeGeometry(std::vector<double> vxs_pos, std::map<int, std::vector<int>> fa_vxs)
     {
@@ -133,7 +135,6 @@ class TwoDHalfEdgeGeometry
                 {
                     // The half-edge that begins at the current iteration vertex
                     HalfEdge *actual_vx_new_he = new_half_edge(); 
-                    actual_vx_new_he->fa = hes_face;
                     actual_vx_new_he->vx = point_to;
 
                     actual_vx_new_he->twin = new_half_edge(true);
@@ -144,67 +145,93 @@ class TwoDHalfEdgeGeometry
                     
                     std::pair<int, int> p = std::pair<int, int>(*vxs_itr - 1, vx_id_point_to);
                     face_new_hes[p] = actual_vx_new_he;
-                } else {
-                    // The twin half-edge which has a null face will now point to a face.
-                    HalfEdge *now_inside_he = get_vxconnection_he(actual_vx, point_to);
-                    if (now_inside_he->fa == nullptr)
-                    {
-                        now_inside_he->fa = hes_face;
-                    } 
-                    else
-                    {
-                        now_inside_he->twin->fa = hes_face;
-                    }
-                }
+                    vx_conn_edges[p] = actual_vx_new_he;
+                } 
                 
             }
 
+            std::vector<HalfEdge*> previously_an_outerhe;
             for (auto vxs_itr = itr->second.begin(); vxs_itr != itr->second.end();
                 vxs_itr++)
             {
-               int actual_vx_id, vx1_id, vx2_id;
-               int num_vxs = itr->second.size();
-               int idx = std::distance(itr->second.begin(), vxs_itr);
+                int actual_vx_id, vx1_id, vx2_id;
+                int num_vxs = itr->second.size();
+                int idx = std::distance(itr->second.begin(), vxs_itr);
 
-               vx1_id = itr->second[(idx + 1) % num_vxs] - 1;
-               vx2_id = itr->second[(idx + 2) % num_vxs] - 1;
-               actual_vx_id = *vxs_itr - 1;
+                vx1_id = itr->second[(idx + 1) % num_vxs] - 1;
+                vx2_id = itr->second[(idx + 2) % num_vxs] - 1;
+                actual_vx_id = *vxs_itr - 1;
 
-               HalfEdge *h1 = get_vxconnection_he(vx_unomap.at(actual_vx_id), vx_unomap.at(vx1_id));
-               HalfEdge *h2 = get_vxconnection_he(vx_unomap.at(vx1_id), vx_unomap.at(vx2_id));
-               if(!h1)
-               {
-                    h1 = face_new_hes.at(std::make_pair(actual_vx_id, vx1_id));     
-               }
-
-               if(!h2)
-               {
-                    h2 = face_new_hes.at(std::make_pair(vx1_id, vx2_id));
-               }
-
-               if (h1->nexthe == nullptr)
-               {
-                    h1->nexthe = h2;
-                    if (h2->prevhe == nullptr)
-                    {
-                        h2->prevhe = h1;
-                        h1->twin->prevhe = h2->twin;
-                        h2->twin->nexthe = h1->twin;
-                    } else{
-                        h1->twin->prevhe = h2->prevhe;
-                        h2->prevhe->nexthe = h1->twin;
-                        h2->prevhe = h1;
-                    }
-               } else{
-                    h2->twin->nexthe = h1->nexthe;
-                    h1->nexthe->prevhe = h2->twin;
-                    h1->nexthe = h2;
-                    h2->prevhe = h1;
-               }
+                HalfEdge *h1 = get_vxconnection_he(vx_unomap.at(actual_vx_id), vx_unomap.at(vx1_id));
+                HalfEdge *h2 = get_vxconnection_he(vx_unomap.at(vx1_id), vx_unomap.at(vx2_id));
                 
+
+               // To assure new face's inner half-edges are being used.
+                if(h1->fa != nullptr)
+                {
+                        h1 = h1->twin;
+                        previously_an_outerhe.push_back(h1);
+                } 
+                if(h2->fa != nullptr)
+                {
+                        h2 = h2->twin;
+                        previously_an_outerhe.push_back(h2);
+                } 
+
+                if(h1->vx->id != vx1_id)
+                {
+                        h1 = h1->twin;
+                } 
+                if(h2->vx->id != vx2_id)
+                {
+                        h2 = h2->twin;
+                } 
+
+                // Tweaking the pointers
+                if (h1->nexthe == nullptr)
+                {
+                        h1->nexthe = h2;
+                        if (h2->prevhe == nullptr)
+                        {
+                            h2->prevhe = h1;
+                            h1->twin->prevhe = h2->twin;
+                            h2->twin->nexthe = h1->twin;
+                        } else{
+                            h1->twin->prevhe = h2->prevhe;
+                            h2->prevhe->nexthe = h1->twin;
+                            h2->prevhe = h1;
+                        }
+                } else{
+                        h2->twin->nexthe = h1->nexthe;
+                        h1->nexthe->prevhe = h2->twin;
+                        h1->nexthe = h2;
+                        h2->prevhe = h1;
+                }
+                
+
+                }
+
+            // Set up new half-edges faces.
+            if (!face_new_hes.empty())
+            {
+                HalfEdge *he = face_new_hes.begin()->second;
+                if(he)
+                {
+                    HalfEdge *start_he = he;
+                    do{
+                        he->fa = hes_face;
+                        he = he->nexthe;
+                    }while(he != start_he);
+                }
+            } 
+
+            // Set up previously outer half-edges face. A half-edge is external if its face == nullptr
+            for(auto i : previously_an_outerhe)
+            {
+                i->fa = hes_face;
             }
 
-            hes_face->he = face_new_hes.begin()->second; // Face half-edge reference is arbitrary
+            hes_face->he = face_new_hes.begin()->second; // Face half-edge reference is arbitrary.
         }
     }
 
@@ -317,10 +344,8 @@ class TwoDHalfEdgeGeometry
     {
         std::map<std::pair<unsigned int, unsigned int>, unsigned int> vxs_conn_edges_id;
 
-        std::cout << "He IDs : \n";
         for (auto he_itr = he_unomap.begin(); he_itr != he_unomap.end(); ++he_itr) {
             HalfEdge* he = he_itr->second;
-            std::cout << he->id << " Twin : " << he->twin->id << '\n';
             unsigned int from_id = he->twin->vx->id;
             unsigned int to_id = he->vx->id;
             vxs_conn_edges_id[std::make_pair(from_id, to_id)] = he->id;
