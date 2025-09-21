@@ -4,9 +4,6 @@
 #include <unordered_map>
 #include <map>
 #include <utility>
-#include <stdexcept> // Necessário para std::runtime_error
-#include <string>    // Necessário para std::to_string
-#include <iostream>  // Para depuração
 
 class TwoDHalfEdgeGeometry
 {
@@ -29,8 +26,7 @@ class TwoDHalfEdgeGeometry
     struct half_edge
     {
         unsigned int id;
-        bool is_a_twin;
-        struct TwoDHalfEdgeGeometry::vertex *vx; // Vértice para o qual a aresta aponta
+        struct TwoDHalfEdgeGeometry::vertex *vx;
         struct TwoDHalfEdgeGeometry::half_edge *nexthe;
         struct TwoDHalfEdgeGeometry::half_edge *prevhe;
         struct TwoDHalfEdgeGeometry::half_edge *twin;
@@ -45,12 +41,12 @@ class TwoDHalfEdgeGeometry
 
     unsigned int vx_id_ctr, he_id_ctr, fa_id_ctr;
     
+    /* Half-edges unordered map stores just one of each half-edges pair of an edge.*/
     std::unordered_map<int, Vertex *> vx_unomap;
     std::unordered_map<int, HalfEdge *> he_unomap;
     std::unordered_map<int, Face *> fa_unomap;
-
-    // --- MUDANÇA 1: Vetor para limpeza segura ---
-    std::vector<HalfEdge*> all_hes_for_cleanup;
+    
+    std::map<std::pair<int, int>, HalfEdge*> vx_conn_edges; // Will hold every vertex connection half-edge.
 
     void new_vertex(double x, double y)
     {
@@ -65,9 +61,6 @@ class TwoDHalfEdgeGeometry
     HalfEdge *new_half_edge(bool twin = false)
     {
         HalfEdge *new_he = new HalfEdge;
-        // --- MUDANÇA 2: Adicionar TODA half-edge criada ao vetor de limpeza ---
-        all_hes_for_cleanup.push_back(new_he);
-
         new_he->vx = nullptr;
         new_he->fa = nullptr;
         new_he->nexthe = nullptr;
@@ -77,9 +70,7 @@ class TwoDHalfEdgeGeometry
         {
             new_he->id = he_id_ctr++;
             he_unomap[new_he->id] = new_he; 
-        } else {
-            new_he->id = he_id_ctr++; 
-        }
+        } else new_he->id = he_id_ctr - 1;
         return new_he;
     }
 
@@ -90,199 +81,280 @@ class TwoDHalfEdgeGeometry
         new_fa->he = nullptr;
         fa_unomap[new_fa->id] = new_fa; 
     }
-    
+
     HalfEdge *get_vxconnection_he(Vertex *v1, Vertex *v2)
     {
-        if(v1->he == nullptr) return nullptr;
+        try
+        {
+            return vx_conn_edges.at(std::make_pair(v1->id, v2->id));
+        }
+        catch(const std::out_of_range& e)
+        {
+            try
+            {
+                return vx_conn_edges.at(std::make_pair(v2->id, v1->id));
+            }
+            catch(const std::exception& e)
+            {
+                return nullptr;
+            }
+            
+        }
         
-        HalfEdge* start_he = v1->he;
-        HalfEdge* current_he = start_he;
-        do {
-            if (current_he->vx == v2) return current_he;
-            current_he = current_he->prevhe->twin;
-        } while(current_he != start_he && current_he != nullptr);
-
-        return nullptr;
     }
 
     public:
 
+    /*
+    Observations:
+    - Vertex N position is given in indexes N-1 (x) and N (y) in vector
+    */
     TwoDHalfEdgeGeometry(std::vector<double> vxs_pos, std::map<int, std::vector<int>> fa_vxs)
     {
-        vx_id_ctr = he_id_ctr = fa_id_ctr = 0;
+        vx_id_ctr = he_id_ctr = fa_id_ctr = 0; // Used to associate the components with an ID
 
-        for (size_t i = 0; i < vxs_pos.size(); i += 2)
+        for (auto itr = vxs_pos.begin(); itr != vxs_pos.end(); itr += 2)
         {
-            new_vertex(vxs_pos[i], vxs_pos[i + 1]);
+            new_vertex(*itr, *(itr + 1));
         }
         
-        std::map<std::pair<unsigned int, unsigned int>, HalfEdge*> edge_map;
-
-        for (auto const& [face_raw_id, vertex_indices] : fa_vxs)
+        for (auto itr = fa_vxs.begin(); itr != fa_vxs.end(); itr++)
         {
             new_face();
-            Face* current_face = fa_unomap[fa_id_ctr - 1];
+            Face *hes_face = fa_unomap.at(itr->first - 1);
+            std::map<std::pair<int, int>, HalfEdge*> face_new_hes;
             
-            std::vector<HalfEdge*> current_face_hes;
-
-            for (size_t i = 0; i < vertex_indices.size(); ++i)
+            for (auto vxs_itr = itr->second.begin(); vxs_itr != itr->second.end();
+                vxs_itr++)
             {
-                unsigned int p1_idx = vertex_indices[i] - 1;
-                unsigned int p2_idx = vertex_indices[(i + 1) % vertex_indices.size()] - 1;
+                Vertex *actual_vx = vx_unomap.at(*vxs_itr - 1);
+                int vx_id_point_to = 
+                    vxs_itr + 1 == itr->second.end() ? *itr->second.begin() - 1 : *(vxs_itr + 1) - 1;
+                Vertex *point_to = vx_unomap.at(vx_id_point_to);
+                if(!get_vxconnection_he(actual_vx, point_to))
+                {
+                    // The half-edge that begins at the current iteration vertex
+                    HalfEdge *actual_vx_new_he = new_half_edge(); 
+                    actual_vx_new_he->vx = point_to;
 
-                if (vx_unomap.find(p1_idx) == vx_unomap.end() || vx_unomap.find(p2_idx) == vx_unomap.end()) {
-                    throw std::runtime_error("Indice de vertice invalido em uma face.");
+                    actual_vx_new_he->twin = new_half_edge(true);
+                    actual_vx_new_he->twin->vx = actual_vx;
+                    actual_vx_new_he->twin->twin = actual_vx_new_he;
+
+                    if(actual_vx->he == nullptr) actual_vx->he = actual_vx_new_he;
+                    
+                    std::pair<int, int> p = std::pair<int, int>(*vxs_itr - 1, vx_id_point_to);
+                    face_new_hes[p] = actual_vx_new_he;
+                    vx_conn_edges[p] = actual_vx_new_he;
+                } 
+                
+            }
+
+            std::vector<HalfEdge*> previously_an_outerhe;
+            for (auto vxs_itr = itr->second.begin(); vxs_itr != itr->second.end();
+                vxs_itr++)
+            {
+                int actual_vx_id, vx1_id, vx2_id;
+                int num_vxs = itr->second.size();
+                int idx = std::distance(itr->second.begin(), vxs_itr);
+
+                vx1_id = itr->second[(idx + 1) % num_vxs] - 1;
+                vx2_id = itr->second[(idx + 2) % num_vxs] - 1;
+                actual_vx_id = *vxs_itr - 1;
+
+                HalfEdge *h1 = get_vxconnection_he(vx_unomap.at(actual_vx_id), vx_unomap.at(vx1_id));
+                HalfEdge *h2 = get_vxconnection_he(vx_unomap.at(vx1_id), vx_unomap.at(vx2_id));
+                
+
+               // To assure new face's inner half-edges are being used.
+                if(h1->fa != nullptr)
+                {
+                        h1 = h1->twin;
+                        previously_an_outerhe.push_back(h1);
+                } 
+                if(h2->fa != nullptr)
+                {
+                        h2 = h2->twin;
+                        previously_an_outerhe.push_back(h2);
+                } 
+
+                if(h1->vx->id != vx1_id)
+                {
+                        h1 = h1->twin;
+                } 
+                if(h2->vx->id != vx2_id)
+                {
+                        h2 = h2->twin;
+                } 
+
+                // Tweaking the pointers
+                if (h1->nexthe == nullptr)
+                {
+                        h1->nexthe = h2;
+                        if (h2->prevhe == nullptr)
+                        {
+                            h2->prevhe = h1;
+                            h1->twin->prevhe = h2->twin;
+                            h2->twin->nexthe = h1->twin;
+                        } else{
+                            h1->twin->prevhe = h2->prevhe;
+                            h2->prevhe->nexthe = h1->twin;
+                            h2->prevhe = h1;
+                        }
+                } else{
+                        h2->twin->nexthe = h1->nexthe;
+                        h1->nexthe->prevhe = h2->twin;
+                        h1->nexthe = h2;
+                        h2->prevhe = h1;
+                }
+                
+
                 }
 
-                Vertex* v1 = vx_unomap[p1_idx];
-                Vertex* v2 = vx_unomap[p2_idx];
-                
-                HalfEdge* he = new_half_edge();
-                he->vx = v2;
-                he->fa = current_face;
-                v1->he = he;
-
-                edge_map[{p1_idx, p2_idx}] = he;
-                current_face_hes.push_back(he);
-            }
-
-            for (size_t i = 0; i < current_face_hes.size(); ++i)
+            // Set up new half-edges faces.
+            if (!face_new_hes.empty())
             {
-                HalfEdge* current_he = current_face_hes[i];
-                HalfEdge* next_he = current_face_hes[(i + 1) % current_face_hes.size()];
-                current_he->nexthe = next_he;
-                next_he->prevhe = current_he;
+                HalfEdge *he = face_new_hes.begin()->second;
+                if(he)
+                {
+                    HalfEdge *start_he = he;
+                    do{
+                        he->fa = hes_face;
+                        he = he->nexthe;
+                    }while(he != start_he);
+                }
+            } 
+
+            // Set up previously outer half-edges face. A half-edge is external if its face == nullptr
+            for(auto i : previously_an_outerhe)
+            {
+                i->fa = hes_face;
             }
-            current_face->he = current_face_hes[0];
-        }
 
-        for (auto const& [edge_pair, he] : edge_map)
-        {
-            if (he->twin != nullptr) continue;
-
-            unsigned int v1_idx = edge_pair.first;
-            unsigned int v2_idx = edge_pair.second;
-
-            auto twin_it = edge_map.find({v2_idx, v1_idx});
-            if (twin_it != edge_map.end()) {
-                HalfEdge* twin_he = twin_it->second;
-                he->twin = twin_he;
-                twin_he->twin = he;
-            } else {
-                HalfEdge* twin_he = new_half_edge(true);
-                he->twin = twin_he;
-                twin_he->twin = he;
-                twin_he->vx = vx_unomap[v1_idx];
-            }
+            hes_face->he = face_new_hes.begin()->second; // Face half-edge reference is arbitrary.
         }
     }
 
-    // --- MUDANÇA 3: Destrutor corrigido ---
     ~TwoDHalfEdgeGeometry()
     {
-        // Deleta todas as half-edges de forma segura
-        for (HalfEdge* he_ptr : all_hes_for_cleanup) {
-            delete he_ptr;
+        for(auto fa_itr = fa_unomap.begin(); fa_itr != fa_unomap.end(); fa_itr++)
+        {
+            delete fa_itr->second;
         }
-        // Deleta faces e vértices (isso já estava correto)
-        for(auto const& [key, fa] : fa_unomap) delete fa;
-        for(auto const& [key, vx] : vx_unomap) delete vx;
+        for(auto he_itr = he_unomap.begin(); he_itr != he_unomap.end(); he_itr++)
+        {
+            delete he_itr->second->twin;
+            delete he_itr->second;
+        }
+        for(auto vx_itr = vx_unomap.begin(); vx_itr != vx_unomap.end(); vx_itr++)
+        {
+            delete vx_itr->second;
+        }
     }
 
-    /* O resto das funções permanece igual */
-
-    std::unordered_map<int, std::pair<double, double>> get_vertexes()
+    /* 
+    Returns an unordered map with keys being the vertexes IDs and values being their position (x, y).
+    */
+    std::unordered_map<int, std::pair<int, int>> get_vertexes()
     {
-        std::unordered_map<int, std::pair<double, double>> vxs;
-        for(auto const& [id, vx_ptr] : vx_unomap)
+        std::unordered_map<int, std::pair<int, int>> vxs;
+
+        for(auto itr = vx_unomap.begin(); itr != vx_unomap.end(); itr++)
         {
-            vxs[id] = std::make_pair(vx_ptr->x, vx_ptr->y);
+            vxs[itr->second->id] = std::make_pair(itr->second->x, itr->second->y);
         }
+
         return vxs;
     }
 
+    /* 
+    Given a vertex ID, returns all incident edges IDs.
+    */
     std::vector<unsigned int> get_vx_edges_id(unsigned int vx_id)
     {
         std::vector<unsigned int> vx_edges_id;
-        if (vx_unomap.find(vx_id) == vx_unomap.end()) return vx_edges_id;
-        HalfEdge *start_he = vx_unomap.at(vx_id)->he;
-        if (start_he == nullptr) return vx_edges_id;
-        HalfEdge *current_he = start_he;
+        HalfEdge *he = vx_unomap.at(vx_id)->he;
+        HalfEdge *start_he = he;
+
         do
         {
-            if (he_unomap.count(current_he->id)) {
-                vx_edges_id.push_back(current_he->id);
-            } else if (current_he->twin != nullptr && he_unomap.count(current_he->twin->id)) {
-                vx_edges_id.push_back(current_he->twin->id);
-            }
-            current_he = current_he->prevhe->twin;
-        } while (current_he != start_he && current_he != nullptr);
+            vx_edges_id.push_back(he->id);
+            he = he->prevhe->twin;
+        } while (he != start_he);
+        
         return vx_edges_id;
     }
 
+    /*Given a vertex ID, returns IDs of faces who share that vertex.*/
     std::vector<unsigned int> get_vx_faces_id(unsigned int vx_id)
     {
         std::vector<unsigned int> vx_faces_id;
-        if (vx_unomap.find(vx_id) == vx_unomap.end()) return vx_faces_id;
-        HalfEdge *start_he = vx_unomap.at(vx_id)->he;
-        if (start_he == nullptr) return vx_faces_id;
-        HalfEdge *current_he = start_he;
+        HalfEdge *he = vx_unomap.at(vx_id)->he;
+        HalfEdge *start_he = he;
+
         do
         {
-            if (current_he->fa != nullptr)
+            if (he->fa != nullptr)
             {
-                vx_faces_id.push_back(current_he->fa->id);
+                vx_faces_id.push_back(he->fa->id);
             }
-            current_he = current_he->prevhe->twin;
-        } while (current_he != start_he && current_he != nullptr);
+            he = he->prevhe->twin;
+        } while (he != start_he);
+
         return vx_faces_id;
     }
 
+    /*Given a face ID, returns all adjacent faces IDs.*/
     std::vector<unsigned int> face_get_adjacent_faces_ids(unsigned int fa_id)
     {
         std::vector<unsigned int> adj_fas_id;
-        if (fa_unomap.find(fa_id) == fa_unomap.end()) return adj_fas_id;
-        HalfEdge *start_he = fa_unomap.at(fa_id)->he;
-        if (start_he == nullptr) return adj_fas_id;
-        HalfEdge *current_he = start_he;
+        HalfEdge *he = fa_unomap.at(fa_id)->he;
+        HalfEdge *start_he = he;
+
         do
         {
-            if(current_he->twin != nullptr && current_he->twin->fa != nullptr)
+            if(he->twin->fa != nullptr)
             {
-                adj_fas_id.push_back(current_he->twin->fa->id);
+                adj_fas_id.push_back(he->twin->fa->id);
             }
-            current_he = current_he->nexthe;
-        } while (current_he != start_he);
+            he = he->nexthe;
+        } while (he != start_he);
+        
         return adj_fas_id;
     }
 
+    /*Given an edge ID, returns all adjacent faces IDs.*/
     std::vector<unsigned int> edge_get_adjacent_faces_ids(unsigned int he_id)
     {
         std::vector<unsigned int> adj_fas_id;
-        if (he_unomap.find(he_id) == he_unomap.end()) return adj_fas_id;
         HalfEdge *he = he_unomap.at(he_id);
-        if (he->fa != nullptr) adj_fas_id.push_back(he->fa->id);
-        if(he->twin != nullptr && he->twin->fa != nullptr)
+        
+        adj_fas_id.push_back(he->fa->id);
+        if(he->twin->fa != nullptr)
         {
             adj_fas_id.push_back(he->twin->fa->id);
         }    
+    
         return adj_fas_id;
     }
 
+    /*Returns a map between a pair of vertexes ID (key) and its connection edge ID (value).*/
     std::map<std::pair<unsigned int, unsigned int>, unsigned int>
     get_vxs_conn_edges_id()
     {
         std::map<std::pair<unsigned int, unsigned int>, unsigned int> vxs_conn_edges_id;
-        for (auto const& [key, he] : he_unomap) {
-            if (he != nullptr && he->twin != nullptr && he->twin->vx != nullptr && he->vx != nullptr) {
-                unsigned int from_id = he->twin->vx->id;
-                unsigned int to_id = he->vx->id;
-                vxs_conn_edges_id[std::make_pair(from_id, to_id)] = he->id;
-            }
+
+        for (auto he_itr = he_unomap.begin(); he_itr != he_unomap.end(); ++he_itr) {
+            HalfEdge* he = he_itr->second;
+            unsigned int from_id = he->twin->vx->id;
+            unsigned int to_id = he->vx->id;
+            vxs_conn_edges_id[std::make_pair(from_id, to_id)] = he->id;
         }
+
         return vxs_conn_edges_id;
     }
 };
 
-#endif
 
+
+#endif
