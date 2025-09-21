@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <map>
 #include <utility>
+#include <iostream>
 
 class TwoDHalfEdgeGeometry
 {
@@ -26,7 +27,6 @@ class TwoDHalfEdgeGeometry
     struct half_edge
     {
         unsigned int id;
-        bool is_a_twin;
         struct TwoDHalfEdgeGeometry::vertex *vx;
         struct TwoDHalfEdgeGeometry::half_edge *nexthe;
         struct TwoDHalfEdgeGeometry::half_edge *prevhe;
@@ -47,7 +47,7 @@ class TwoDHalfEdgeGeometry
     std::unordered_map<int, HalfEdge *> he_unomap;
     std::unordered_map<int, Face *> fa_unomap;
 
-    void new_vertex(int x, int y)
+    void new_vertex(double x, double y)
     {
         Vertex *new_vx = new Vertex;
         new_vx->id = vx_id_ctr++;
@@ -69,7 +69,7 @@ class TwoDHalfEdgeGeometry
         {
             new_he->id = he_id_ctr++;
             he_unomap[new_he->id] = new_he; 
-        } else new_he->id = he_id_ctr;
+        } else new_he->id = he_id_ctr - 1;
         return new_he;
     }
 
@@ -87,7 +87,16 @@ class TwoDHalfEdgeGeometry
     {
         if(v1->he == nullptr) return nullptr;
         else if(v1->he->vx == v2) return v1->he;
-        else if (v1->he->twin->nexthe->vx == v2) return v1->he->twin->nexthe;
+
+        if(v1->he->twin->nexthe == nullptr) return nullptr;
+        else if(v1->he->twin->nexthe->vx == v2) return v1->he->twin->nexthe;
+
+        if(v2->he == nullptr) return nullptr;
+        else if (v2->he->vx == v1) return v2->he;
+
+        if(v2->he->twin->nexthe == nullptr) return nullptr;
+        else if(v2->he->twin->nexthe->vx == v1) return v2->he->twin->nexthe;
+
         else return nullptr;
     }
 
@@ -120,25 +129,28 @@ class TwoDHalfEdgeGeometry
                 int vx_id_point_to = 
                     vxs_itr + 1 == itr->second.end() ? *itr->second.begin() - 1 : *(vxs_itr + 1) - 1;
                 Vertex *point_to = vx_unomap.at(vx_id_point_to);
-                if((!get_vxconnection_he(actual_vx, point_to)))
+                if(!get_vxconnection_he(actual_vx, point_to))
                 {
                     // The half-edge that begins at the current iteration vertex
-                    HalfEdge *actual_vx_he = new_half_edge(); 
-                    actual_vx_he->fa = hes_face;
-                    actual_vx_he->vx = point_to;
+                    HalfEdge *actual_vx_new_he = new_half_edge(); 
+                    actual_vx_new_he->fa = hes_face;
+                    actual_vx_new_he->vx = point_to;
 
-                    actual_vx_he->twin = new_half_edge(true);
-                    actual_vx_he->twin->vx = actual_vx;
-                    actual_vx_he->twin->twin = actual_vx_he;
+                    actual_vx_new_he->twin = new_half_edge(true);
+                    actual_vx_new_he->twin->vx = actual_vx;
+                    actual_vx_new_he->twin->twin = actual_vx_new_he;
 
-                    actual_vx->he = actual_vx_he;
+                    if(actual_vx->he == nullptr) actual_vx->he = actual_vx_new_he;
                     
                     std::pair<int, int> p = std::pair<int, int>(*vxs_itr - 1, vx_id_point_to);
-                    face_new_hes[p] = actual_vx_he;
+                    face_new_hes[p] = actual_vx_new_he;
                 } else {
                     // The twin half-edge which has a null face will now point to a face.
                     HalfEdge *now_inside_he = get_vxconnection_he(actual_vx, point_to);
-                    if (now_inside_he->fa == nullptr) now_inside_he->fa = hes_face;
+                    if (now_inside_he->fa == nullptr)
+                    {
+                        now_inside_he->fa = hes_face;
+                    } 
                     else
                     {
                         now_inside_he->twin->fa = hes_face;
@@ -146,27 +158,29 @@ class TwoDHalfEdgeGeometry
                 }
                 
             }
+
             for (auto vxs_itr = itr->second.begin(); vxs_itr != itr->second.end();
                 vxs_itr++)
             {
                int actual_vx_id, vx1_id, vx2_id;
-               if (vxs_itr + 1 == itr->second.end())
-               {
-                    vx1_id = *itr->second.begin() - 1;
-                    vx2_id = *(itr->second.begin() + 1) - 1;
-               }
-               else if(vxs_itr + 2 == itr->second.end())
-               {
-                    vx1_id = *(vxs_itr + 1) - 1;
-                    vx2_id = *itr->second.begin() - 1;
-               } else {
-                    vx1_id = *(vxs_itr + 1) - 1;
-                    vx2_id = *(vxs_itr + 2) - 1;
-               }
+               int num_vxs = itr->second.size();
+               int idx = std::distance(itr->second.begin(), vxs_itr);
+
+               vx1_id = itr->second[(idx + 1) % num_vxs] - 1;
+               vx2_id = itr->second[(idx + 2) % num_vxs] - 1;
                actual_vx_id = *vxs_itr - 1;
 
                HalfEdge *h1 = get_vxconnection_he(vx_unomap.at(actual_vx_id), vx_unomap.at(vx1_id));
                HalfEdge *h2 = get_vxconnection_he(vx_unomap.at(vx1_id), vx_unomap.at(vx2_id));
+               if(!h1)
+               {
+                    h1 = face_new_hes.at(std::make_pair(actual_vx_id, vx1_id));     
+               }
+
+               if(!h2)
+               {
+                    h2 = face_new_hes.at(std::make_pair(vx1_id, vx2_id));
+               }
 
                if (h1->nexthe == nullptr)
                {
@@ -303,8 +317,10 @@ class TwoDHalfEdgeGeometry
     {
         std::map<std::pair<unsigned int, unsigned int>, unsigned int> vxs_conn_edges_id;
 
+        std::cout << "He IDs : \n";
         for (auto he_itr = he_unomap.begin(); he_itr != he_unomap.end(); ++he_itr) {
             HalfEdge* he = he_itr->second;
+            std::cout << he->id << " Twin : " << he->twin->id << '\n';
             unsigned int from_id = he->twin->vx->id;
             unsigned int to_id = he->vx->id;
             vxs_conn_edges_id[std::make_pair(from_id, to_id)] = he->id;
