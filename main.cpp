@@ -6,7 +6,7 @@
  * 1. Processar argumentos para obter o caminho do arquivo .obj.
  * 2. Chamar o leitor de .obj.
  * 3. Construir a estrutura de dados Half-Edge.
- * 4. Iniciar o renderizador, que agora gerencia toda a interatividade.
+ * 4. Iniciar o renderizador, que gerencia toda a interatividade.
  */
 
 #include <iostream>
@@ -44,7 +44,6 @@ int main(int argc, char* argv[]) {
         std::cout << "Estrutura de dados construida com sucesso!" << std::endl;
         std::cout << "\nIniciando a janela grafica..." << std::endl;
         
-        // Inicia o renderer, que cuidará de todo o loop principal e interatividade.
         start_renderer(argc, argv, geometry);
 
     } catch (const std::exception& e) {

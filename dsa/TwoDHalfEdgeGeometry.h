@@ -51,7 +51,6 @@ private:
     std::vector<HalfEdge*> all_half_edges;
 
 public:
-    // Construtor usa a lógica robusta que desenvolvemos, que é mais simples e correta
     TwoDHalfEdgeGeometry(const std::vector<double>& vxs_pos, const std::map<int, std::vector<int>>& fa_vxs)
     {
         vx_id_ctr = he_id_ctr = fa_id_ctr = 0;
@@ -148,7 +147,6 @@ public:
         }
     }
 
-    // **DESTRUTOR CORRIGIDO** para evitar crashes
     ~TwoDHalfEdgeGeometry()
     {
         for (auto he : all_half_edges) { delete he; }

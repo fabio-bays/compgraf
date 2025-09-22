@@ -1,9 +1,6 @@
 /**
  * @file renderer.cpp
  * @brief Implementa a renderização do objeto 2D com interface e labels completos.
- *
- * Esta versão adiciona a funcionalidade de exibir os IDs das faces, além dos
- * vértices e arestas, diretamente na tela.
  */
 
 #include <GL/freeglut.h>
@@ -130,7 +127,7 @@ void display() {
                 } catch(const std::out_of_range&) {}
             }
 
-            // NOVO: Labels das Faces (magenta)
+            // Labels das Faces (magenta)
             glColor3f(1.0f, 0.0f, 1.0f);
             auto faces = g_geometry->get_faces_with_vertices();
             for (const auto& [face_id, vertex_ids] : faces) {

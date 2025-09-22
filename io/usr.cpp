@@ -5,6 +5,9 @@
  * Esta versão é projetada para ser chamada de forma não-bloqueante,
  * processando um único comando por vez para permitir a execução simultânea
  * com a janela do OpenGL.
+ * 
+ * ESSE ARQUIVO NÃO É MAIS UTILIZADO, POIS A LÓGICA DE INTERAÇÃO COM O USUÁRIO
+ * FOI MOVIDA PARA O ARQUIVO RENDERER/RENDERER.CPP 
  */
 
 #include <iostream>
@@ -45,13 +48,8 @@ void process_user_command(TwoDHalfEdgeGeometry& geometry) {
         g_first_run = false;
     }
 
-    // Verifica se há algo para ler no buffer de entrada
-    // Esta parte é um pouco complexa e depende do sistema operacional,
-    // a forma mais simples é apenas tentar ler.
-    // Para uma solução mais robusta, seriam necessárias APIs específicas.
     std::string command;
     
-    // Vamos usar um truque simples: ler uma linha inteira
     if (std::getline(std::cin, command)) {
         if (command.empty()) {
              std::cout << "> " << std::flush;

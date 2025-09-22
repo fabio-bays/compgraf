@@ -6,7 +6,6 @@
 #include <map>
 #include <iostream>
 
-// A função original que faz a leitura. Vamos mantê-la como uma função auxiliar.
 std::pair<std::vector<double>, std::map<int, std::vector<int>>>
 data_from_obj(std::ifstream *obj_file)
 {
@@ -47,7 +46,7 @@ data_from_obj(std::ifstream *obj_file)
                     fas_vxs.push_back(std::stoi(vertex_index));
                 }
                 fas_map[fas_idx++] = fas_vxs; 
-                fas_vxs.clear(); // Usar clear() é mais eficiente que recriar o vetor.
+                fas_vxs.clear();
                 break;
             default:
                 // Ignora linhas desconhecidas em vez de encerrar o programa.
@@ -59,7 +58,6 @@ data_from_obj(std::ifstream *obj_file)
 
 /**
  * @brief (Implementação) Lê um arquivo .obj e popula as estruturas de dados.
- * Esta é a função que o main.cpp irá chamar.
  */
 bool read_obj_file(const std::string& filepath, std::vector<double>& vxs_pos, std::map<int, std::vector<int>>& fa_vxs)
 {
@@ -70,7 +68,6 @@ bool read_obj_file(const std::string& filepath, std::vector<double>& vxs_pos, st
         return false;
     }
 
-    // Chama a função auxiliar para processar o arquivo.
     std::pair<std::vector<double>, std::map<int, std::vector<int>>> data = data_from_obj(&file);
 
     // Popula as variáveis passadas por referência com os dados lidos.
@@ -80,5 +77,3 @@ bool read_obj_file(const std::string& filepath, std::vector<double>& vxs_pos, st
     file.close();
     return true;
 }
-
-// A função 'main' foi removida daqui. O único 'main' agora está em main.cpp.
