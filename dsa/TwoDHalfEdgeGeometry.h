@@ -238,6 +238,28 @@ public:
         }
         return vxs_conn_edges_id;
     }
+
+    std::map<unsigned int, std::vector<unsigned int>> get_faces_with_vertices()
+    {
+        std::map<unsigned int, std::vector<unsigned int>> faces_map;
+        for (const auto& [face_id, face_ptr] : fa_unomap) {
+            if (!face_ptr || !face_ptr->he) continue;
+
+            std::vector<unsigned int> vertex_ids;
+            half_edge *start_he = face_ptr->he;
+            half_edge *current_he = start_he;
+
+            do {
+                if (current_he && current_he->vx) {
+                     vertex_ids.push_back(current_he->vx->id);
+                }
+                current_he = current_he->nexthe;
+            } while (current_he != start_he && current_he != nullptr);
+
+            faces_map[face_id] = vertex_ids;
+        }
+        return faces_map;
+    }
 };
 
 #endif
