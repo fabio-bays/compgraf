@@ -31,5 +31,8 @@ Certifique-se de ter a ```freeglut.dll``` em seu repositório.
 g++ main.cpp io/objreader.cpp renderer/renderer.cpp -o meu_programa -lglut -lGLU -lGL
 meu_programa [arquivo].obj
 ```
+## Página do projeto no github
+https://github.com/fabio-bays/compgraf/tree/main
+
 
 
