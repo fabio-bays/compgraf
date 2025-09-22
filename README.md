@@ -34,3 +34,10 @@ Half-edges:
     Sources:
     https://jerryyin.info/geometry-processing-algorithms/half-edge/
     Paper "An Overview on Boundary Representation"
+
+## Como rodar:
+```bash
+g++ main.cpp io/objreader.cpp renderer/renderer.cpp -o meu_programa.exe -lfreeglut -lopengl32 -lglu32 -Wno-deprecated
+```
+
+Certifique-se de ter a ```freeglut.dll``` em seu repositório.
