@@ -14,7 +14,15 @@
 #include <cmath>
 #include <algorithm>
 
+#include "../glm/glm.hpp"
+#include "../glm/gtc/matrix_transform.hpp"
+#include "../glm/gtc/type_ptr.hpp"
+
 #include "../dsa/TwoDHalfEdgeGeometry.h"
+
+#define KEY_ESCAPE 27
+#define KEY_ENTER 13
+#define KEY_BACKSPACE 8
 
 // --- Variáveis Globais para o Estado da UI e Labels ---
 TwoDHalfEdgeGeometry* g_geometry = nullptr;
@@ -178,10 +186,31 @@ void display() {
 }
 
 void keyboard(unsigned char key, int x, int y) {
+    auto vertices = g_geometry->get_vertexes();
     switch (key) {
-        case 27: glutLeaveMainLoop(); break;
-        case 13: process_command(); break;
-        case 8: if (!g_command_input.empty()) { g_command_input.pop_back(); } break;
+        case KEY_ESCAPE: glutLeaveMainLoop(); break;
+        case KEY_ENTER: process_command(); break;
+        case KEY_BACKSPACE: if (!g_command_input.empty()) { g_command_input.pop_back(); } break;
+        case 'd':
+            for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
+            {
+                glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
+                glm::mat4 translate = glm::mat4(1.0f);
+                translate = glm::translate(translate, glm::vec3(.5f, 0.0f, 0.0f));
+                vx = translate * vx;
+                g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
+            }
+            break;
+        case 'a':
+            for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
+            {
+                glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
+                glm::mat4 translate = glm::mat4(1.0f);
+                translate = glm::translate(translate, glm::vec3(-.5f, 0.0f, 0));
+                vx = translate * vx;
+                g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
+            }
+            break;
         case 'l': case 'L':
             g_show_labels = !g_show_labels;
             g_command_output = g_show_labels ? "Labels de ID ativados." : "Labels de ID desativados.";

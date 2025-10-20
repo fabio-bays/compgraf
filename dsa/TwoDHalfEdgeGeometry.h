@@ -260,6 +260,12 @@ public:
         }
         return faces_map;
     }
+
+    void update_vertex_pos(unsigned int vx_id, double x, double y)
+    {
+        vx_unomap.at(vx_id)->x = x;
+        vx_unomap.at(vx_id)->y = y;
+    }
 };
 
 #endif
