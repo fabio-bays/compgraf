@@ -32,7 +32,7 @@
 // --- Variáveis Globais para o Estado da UI e Labels ---
 TwoDHalfEdgeGeometry* g_geometry = nullptr;
 std::string g_command_input = "";
-std::string g_command_output = "Digite 'ajuda' e pressione Enter. Pressione 'l' para ver os IDs.";
+std::string g_command_output = "Digite 'AJUDA' e pressione Enter. Pressione 'l' para ver os IDs.";
 bool g_show_labels = false;
 std::pair<double, double> centroid;
 
@@ -52,33 +52,34 @@ void process_command() {
     std::string action;
     iss >> action;
 
-    if (action == "ajuda") {
-        g_command_output = "Comandos: faces_adjacentes_face/aresta <id>, faces/arestas_do_vertice <id>";
+    if (action == "AJUDA") {
+        g_command_output = "Comandos: FACES_ADJACENTES[FACE/ARESTA] <id>, [FACES/ARESTAS]_DO_VERTICE <id>";
         g_command_input.clear();
         return;
     }
 
     int id;
     if (!(iss >> id)) {
-        g_command_output = "Erro: Comando invalido ou ID ausente. Ex: 'faces_do_vertice 1'";
+        g_command_output = "Erro: Comando invalido ou ID ausente. Ex.: 'FACES_DO_VERTICE 1';"
+                            " 'FACES_ADJACENTES_FACE 5'; 'FACES_ADJACENTES_ARESTA 2'";
         g_command_input.clear();
         return;
     }
 
     try {
-        if (action == "faces_adjacentes_face") {
+        if (action == "FACES_ADJACENTES_FACE") {
             auto ids = g_geometry->face_get_adjacent_faces_ids(id);
             result_stream << "Faces adjacentes a face " << id << ": ";
             for(auto i : ids) result_stream << i << " ";
-        } else if (action == "faces_adjacentes_aresta") {
+        } else if (action == "FACES_ADJACENTES_ARESTA") {
             auto ids = g_geometry->edge_get_adjacent_faces_ids(id);
             result_stream << "Faces adjacentes a aresta " << id << ": ";
             for(auto i : ids) result_stream << i << " ";
-        } else if (action == "faces_do_vertice") {
+        } else if (action == "FACES_DO_VERTICE") {
             auto ids = g_geometry->get_vx_faces_id(id);
             result_stream << "Faces que compartilham o vertice " << id << ": ";
             for(auto i : ids) result_stream << i << " ";
-        } else if (action == "arestas_do_vertice") {
+        } else if (action == "ARESTAS_DO_VERTICE") {
             auto ids = g_geometry->get_vx_edges_id(id);
             result_stream << "Arestas que partem do vertice " << id << ": ";
             for(auto i : ids) result_stream << i << " ";
@@ -194,7 +195,6 @@ void display() {
 void translate(double x, double y)
 {
     auto vertices = g_geometry->get_vertexes();
-    std::cout << "before : " << centroid.first << ", " << centroid.second << '\n';
     for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
     {
         glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
@@ -322,11 +322,17 @@ void keyboard(unsigned char key, int x, int y) {
         case 'j':
             shear(0.0f, -SHEAR_FACTOR);
             break;
-        case 'l': case 'L':
+        case 'l':
             g_show_labels = !g_show_labels;
             g_command_output = g_show_labels ? "Labels de ID ativados." : "Labels de ID desativados.";
             break;
-        default: if (isprint(key)) { g_command_input += key; } break;
+        default:
+            if (isprint(key) && (isupper(key) || ispunct(key) || isxdigit(key) || isblank(key)))
+            {
+                std::cerr << "isupper!\n";
+                g_command_input += key;
+            }
+            break;
     }
     glutPostRedisplay();
 }
