@@ -24,11 +24,17 @@
 #define KEY_ENTER 13
 #define KEY_BACKSPACE 8
 
+#define SHEAR_FACTOR 0.2f
+#define TRANSLATE_FACTOR 0.5f
+#define ROTATE_DEGREE 10.0f
+#define SCALE_FACTOR 0.2f
+
 // --- Variáveis Globais para o Estado da UI e Labels ---
 TwoDHalfEdgeGeometry* g_geometry = nullptr;
 std::string g_command_input = "";
 std::string g_command_output = "Digite 'ajuda' e pressione Enter. Pressione 'l' para ver os IDs.";
 bool g_show_labels = false;
+std::pair<double, double> centroid;
 
 // --- Funções da Interface Gráfica ---
 
@@ -185,31 +191,136 @@ void display() {
     glutSwapBuffers();
 }
 
-void keyboard(unsigned char key, int x, int y) {
+void translate(double x, double y)
+{
     auto vertices = g_geometry->get_vertexes();
+    std::cout << "before : " << centroid.first << ", " << centroid.second << '\n';
+    for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
+    {
+        glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::translate(trans, glm::vec3(x, y, 0.0f));
+        vx = trans * vx;
+        
+        g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
+    }
+    centroid.first += x;
+    centroid.second += y;
+}
+
+void rotate(float angle)
+{
+    auto vertices = g_geometry->get_vertexes();
+    for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
+    {
+        glm::vec2 center(centroid.first, centroid.second);
+        glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::translate(trans, glm::vec3(center, 0.0f));
+        trans = glm::rotate(trans, glm::radians(angle), glm::vec3(0.0, 0.0, 1.0));
+        trans = glm::translate(trans, glm::vec3(-center, 0.0f));
+        vx = trans * vx;
+        g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
+    }
+}
+
+void scale(float f)
+{
+    auto vertices = g_geometry->get_vertexes();
+    for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
+    {
+        glm::vec2 center(centroid.first, centroid.second);
+        glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::scale(trans, glm::vec3(f, f, 0.0));
+        vx = trans * vx;
+        g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
+    }
+    centroid = g_geometry->get_centroid();
+}
+
+void reflect(float x, float y)
+{
+    auto vertices = g_geometry->get_vertexes();
+    for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
+    {
+        glm::vec2 center(centroid.first, centroid.second);
+        glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::translate(trans, glm::vec3(center, 0.0f));
+        trans = glm::rotate(trans, glm::radians(180.0f), glm::vec3(x, y, 0.0));
+        trans = glm::translate(trans, glm::vec3(-center, 0.0f));
+        vx = trans * vx;
+        g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
+    }
+    centroid = g_geometry->get_centroid();
+}
+
+void shear(float x, float y)
+{
+        auto vertices = g_geometry->get_vertexes();
+    for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
+    {
+        glm::vec2 center(centroid.first, centroid.second);
+        glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::shear(trans, glm::vec3(1.0f, 1.0f, 0.0f), 
+                            glm::vec2(x, 0.0f),
+                            glm::vec2(y, 0.0f),
+                            glm::vec2(0.0f, 0.0f));
+        vx = trans * vx;
+        g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
+    }
+    centroid = g_geometry->get_centroid();
+}
+
+void keyboard(unsigned char key, int x, int y) {
+    
     switch (key) {
         case KEY_ESCAPE: glutLeaveMainLoop(); break;
         case KEY_ENTER: process_command(); break;
         case KEY_BACKSPACE: if (!g_command_input.empty()) { g_command_input.pop_back(); } break;
         case 'd':
-            for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
-            {
-                glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
-                glm::mat4 translate = glm::mat4(1.0f);
-                translate = glm::translate(translate, glm::vec3(.5f, 0.0f, 0.0f));
-                vx = translate * vx;
-                g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
-            }
+            translate(TRANSLATE_FACTOR, 0.0);
             break;
         case 'a':
-            for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
-            {
-                glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
-                glm::mat4 translate = glm::mat4(1.0f);
-                translate = glm::translate(translate, glm::vec3(-.5f, 0.0f, 0));
-                vx = translate * vx;
-                g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
-            }
+            translate(-TRANSLATE_FACTOR, 0.0);
+            break;
+        case 'w':
+            translate(0.0, TRANSLATE_FACTOR);
+            break;
+        case 's':
+            translate(0.0, -TRANSLATE_FACTOR);
+            break;
+        case 'e':
+            rotate(ROTATE_DEGREE);
+            break;
+        case 'q':
+            rotate(-ROTATE_DEGREE);
+            break;
+        case '+':
+            scale(1.0f + SCALE_FACTOR);
+            break;
+        case '-':
+            scale(1.0f - SCALE_FACTOR);
+            break;
+        case 't':
+            reflect(1.0f, 0.0f);
+            break;
+        case 'g':
+            reflect(0.0f, 1.0f);
+            break;
+        case 'k':
+            shear(SHEAR_FACTOR, 0.0f);
+            break;
+        case 'h':
+            shear(-SHEAR_FACTOR, 0.0f);
+            break;
+        case 'u':
+            shear(0.0f, SHEAR_FACTOR);
+            break;
+        case 'j':
+            shear(0.0f, -SHEAR_FACTOR);
             break;
         case 'l': case 'L':
             g_show_labels = !g_show_labels;
@@ -228,6 +339,7 @@ void start_renderer(int argc, char* argv[], TwoDHalfEdgeGeometry& geometry) {
     glutCreateWindow("Visualizador Interativo .obj");
 
     g_geometry = &geometry;
+    centroid = g_geometry->get_centroid();
 
     auto vertices = g_geometry->get_vertexes();
     double minX = 0, maxX = 0, minY = 0, maxY = 0;

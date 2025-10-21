@@ -266,6 +266,33 @@ public:
         vx_unomap.at(vx_id)->x = x;
         vx_unomap.at(vx_id)->y = y;
     }
+
+    /*Computes and returns the polygon centroid position*/
+    std::pair<double, double> get_centroid()
+    {
+        auto vertices = get_vertexes();
+        double cx = 0.0, cy = 0.0, A = 0.0;
+        size_t n = vertices.size();
+
+        for (size_t i = 0; i < n; ++i) {
+            double xi = vertices[i].first;
+            double yi = vertices[i].second;
+            double xi1 = vertices[(i + 1) % n].first;
+            double yi1 = vertices[(i + 1) % n].second;
+
+            // Signed area of the parallelogram (sap) formed by the vectors
+            double sap = xi * yi1 - xi1 * yi;
+            A += sap;
+            cx += (xi + xi1) * sap;
+            cy += (yi + yi1) * sap;
+        }
+
+        A *= 0.5;
+        cx /= (6.0 * A);
+        cy /= (6.0 * A);
+
+        return {cx, cy};
+    }
 };
 
 #endif
