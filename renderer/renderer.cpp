@@ -29,6 +29,11 @@
 #define ROTATE_DEGREE 10.0f
 #define SCALE_FACTOR 0.2f
 
+extern void save_obj_file(const std::string& filepath, 
+                        std::map<unsigned int, std::vector<unsigned int>> faces_map,
+                        std::unordered_map<unsigned int, std::pair<double, double>> vxs_pos);
+
+
 // --- Variáveis Globais para o Estado da UI e Labels ---
 TwoDHalfEdgeGeometry* g_geometry = nullptr;
 std::string g_command_input = "";
@@ -57,6 +62,22 @@ void process_command() {
         g_command_input.clear();
         return;
     }
+    if (action == "SALVAR") {
+            std::string filename;
+            iss >> filename;
+            if (filename.size() == 0)
+            {
+                g_command_output = "Erro: comando invalido. Ex.: 'SALVAR NOME_ARQUIVO'";
+                g_command_input.clear();
+                return;
+            }
+
+            save_obj_file(filename + ".obj", g_geometry->get_faces_with_vertices(),
+                        g_geometry->get_vertexes());
+            g_command_output = "Arquivo " + filename + ".obj" + " salvo.";
+            g_command_input.clear();
+            return;
+        }
 
     int id;
     if (!(iss >> id)) {
@@ -211,13 +232,14 @@ void translate(double x, double y)
 void rotate(float angle)
 {
     auto vertices = g_geometry->get_vertexes();
+    glm::vec2 center(centroid.first, centroid.second);
+    
     for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
     {
-        glm::vec2 center(centroid.first, centroid.second);
-        glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
+        glm::vec4 vx((float)itr->second.first, (float)itr->second.second, 0, 1.0f);
         glm::mat4 trans = glm::mat4(1.0f);
         trans = glm::translate(trans, glm::vec3(center, 0.0f));
-        trans = glm::rotate(trans, glm::radians(angle), glm::vec3(0.0, 0.0, 1.0));
+        trans = glm::rotate(trans, glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
         trans = glm::translate(trans, glm::vec3(-center, 0.0f));
         vx = trans * vx;
         g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
@@ -227,9 +249,9 @@ void rotate(float angle)
 void scale(float f)
 {
     auto vertices = g_geometry->get_vertexes();
+    glm::vec2 center(centroid.first, centroid.second);
     for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
     {
-        glm::vec2 center(centroid.first, centroid.second);
         glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
         glm::mat4 trans = glm::mat4(1.0f);
         trans = glm::scale(trans, glm::vec3(f, f, 0.0));
@@ -242,9 +264,9 @@ void scale(float f)
 void reflect(float x, float y)
 {
     auto vertices = g_geometry->get_vertexes();
+    glm::vec2 center(centroid.first, centroid.second);
     for (auto itr = vertices.begin(); itr != vertices.end(); itr++)
     {
-        glm::vec2 center(centroid.first, centroid.second);
         glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
         glm::mat4 trans = glm::mat4(1.0f);
         trans = glm::translate(trans, glm::vec3(center, 0.0f));
@@ -329,7 +351,6 @@ void keyboard(unsigned char key, int x, int y) {
         default:
             if (isprint(key) && (isupper(key) || ispunct(key) || isxdigit(key) || isblank(key)))
             {
-                std::cerr << "isupper!\n";
                 g_command_input += key;
             }
             break;

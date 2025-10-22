@@ -144,7 +144,7 @@ public:
                 he_prev->nexthe = he_curr;
                 he_curr->fa = new_fa;
             }
-            new_fa->he = face_hes[0];
+            new_fa->he = face_hes[2];
         }
     }
 
@@ -239,6 +239,7 @@ public:
         return vxs_conn_edges_id;
     }
 
+    /*Compute and returns a list of faces with their corresponding vertices.*/
     std::map<unsigned int, std::vector<unsigned int>> get_faces_with_vertices()
     {
         std::map<unsigned int, std::vector<unsigned int>> faces_map;
@@ -251,7 +252,7 @@ public:
 
             do {
                 if (current_he && current_he->vx) {
-                     vertex_ids.push_back(current_he->vx->id);
+                    vertex_ids.push_back(current_he->vx->id);
                 }
                 current_he = current_he->nexthe;
             } while (current_he != start_he && current_he != nullptr);
@@ -270,27 +271,28 @@ public:
     /*Computes and returns the polygon centroid position*/
     std::pair<double, double> get_centroid()
     {
+        // Area-weighted centroid for triangle mesh using triangle centroid formula
+        auto faces_map = get_faces_with_vertices();
         auto vertices = get_vertexes();
-        double cx = 0.0, cy = 0.0, A = 0.0;
-        size_t n = vertices.size();
+        double total_area = 0.0, cx = 0.0, cy = 0.0;
 
-        for (size_t i = 0; i < n; ++i) {
-            double xi = vertices[i].first;
-            double yi = vertices[i].second;
-            double xi1 = vertices[(i + 1) % n].first;
-            double yi1 = vertices[(i + 1) % n].second;
-
-            // Signed area of the parallelogram (sap) formed by the vectors
-            double sap = xi * yi1 - xi1 * yi;
-            A += sap;
-            cx += (xi + xi1) * sap;
-            cy += (yi + yi1) * sap;
+        for (const auto& [face_id, face_vx_ids] : faces_map) {
+            const auto& A = vertices.at(face_vx_ids[0]);
+            const auto& B = vertices.at(face_vx_ids[1]);
+            const auto& C = vertices.at(face_vx_ids[2]);
+            // Area (signed)
+            double area = 0.5 * ((B.first - A.first) * (C.second - A.second) - (C.first - A.first) * (B.second - A.second));
+            if (std::abs(area) < 1e-12) continue; // skip degenerate triangles
+            // Centroid of triangle
+            double tri_cx = (A.first + B.first + C.first) / 3.0;
+            double tri_cy = (A.second + B.second + C.second) / 3.0;
+            // Area-weighted sum
+            cx += tri_cx * area;
+            cy += tri_cy * area;
+            total_area += area;
         }
-
-        A *= 0.5;
-        cx /= (6.0 * A);
-        cy /= (6.0 * A);
-
+        cx /= total_area;
+        cy /= total_area;
         return {cx, cy};
     }
 };

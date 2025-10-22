@@ -5,6 +5,8 @@
 #include <utility>
 #include <map>
 #include <iostream>
+#include <unordered_map>
+
 
 /*Read a OBJ file and returns a pair of vector and a map.
 
@@ -86,4 +88,37 @@ bool read_obj_file(const std::string& filepath, std::vector<double>& vxs_pos, st
     return true;
 }
 
-// A função 'main' foi removida daqui. O único 'main' agora está em main.cpp.
+void save_obj_file(const std::string& filepath, 
+                std::map<unsigned int, std::vector<unsigned int>> faces_map,
+                std::unordered_map<unsigned int, std::pair<double, double>> vxs_pos)           
+{
+    std::ofstream file(filepath);
+
+    if (!file.is_open()) {
+        std::cerr << "Erro: Nao foi possivel abrir o arquivo: " << filepath << '\n';
+        return;
+    }
+
+    /*1. Map internal vertex IDs to OBJ indices (vxs_pos unordered map is **unordered**).
+    Faces in OBJ counts vertices from order of apparition.*/
+    std::map<unsigned int, int> id_to_obj_idx;
+    int obj_idx = 1;
+    for(const auto& [id, pos] : vxs_pos)
+    {
+        file << "v " << pos.first << " " << pos.second << '\n';
+        id_to_obj_idx[id] = obj_idx++;
+    }
+
+    // 2. Write faces using the OBJ indices
+    for(const auto& [fa_ids, fa_vxs] : faces_map)
+    {
+        file << "f ";
+        for(const auto& vx_id : fa_vxs)
+        {   
+            file << id_to_obj_idx[vx_id] << " ";
+        }
+        file << '\n';
+    }
+
+    file.close();
+}

@@ -17,8 +17,8 @@
 #include "dsa/TwoDHalfEdgeGeometry.h"
 
 // Protótipos de Funções
-bool read_obj_file(const std::string& filepath, std::vector<double>& vxs_pos, std::map<int, std::vector<int>>& fa_vxs);
-void start_renderer(int argc, char* argv[], TwoDHalfEdgeGeometry& geometry);
+extern bool read_obj_file(const std::string& filepath, std::vector<double>& vxs_pos, std::map<int, std::vector<int>>& fa_vxs);
+extern void start_renderer(int argc, char* argv[], TwoDHalfEdgeGeometry& geometry);
 
 
 int main(int argc, char* argv[]) {
