@@ -45,7 +45,7 @@ TwoDHalfEdgeGeometry* g_geometry = nullptr;
 std::string g_command_input = "";
 // ATUALIZADO para incluir a tecla 3
 const std::string guide_output_str = "Teclas: [L] Labels, [1] Parametrico, [2] Bresenham, [3] Xiaolin Wu."
-                                " [W-A-S-D] Translação, [E-Q] Rotação, [+ -] Zoom, [T-G] Refletir"
+                                " [W-A-S-D] Translacao, [E-Q] Rotacao, [+ -] Zoom, [T-G] Reflexao"
                                 " [U-J-H-K] Cisalhamento."
                                 " Para salvar, 'SALVAR nomedoarquivo'"; 
 std::string g_command_output = guide_output_str;
