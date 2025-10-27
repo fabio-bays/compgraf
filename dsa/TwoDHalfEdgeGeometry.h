@@ -277,6 +277,7 @@ public:
         double total_area = 0.0, cx = 0.0, cy = 0.0;
 
         for (const auto& [face_id, face_vx_ids] : faces_map) {
+            if (face_vx_ids.size() != 3) continue; // Only triangles
             const auto& A = vertices.at(face_vx_ids[0]);
             const auto& B = vertices.at(face_vx_ids[1]);
             const auto& C = vertices.at(face_vx_ids[2]);
@@ -290,6 +291,17 @@ public:
             cx += tri_cx * area;
             cy += tri_cy * area;
             total_area += area;
+        }
+        if (std::abs(total_area) < 1e-12) {
+            // Fallback: average of all vertices
+            double sum_x = 0.0, sum_y = 0.0;
+            for (const auto& [id, pos] : vertices) {
+                sum_x += pos.first;
+                sum_y += pos.second;
+            }
+            size_t n = vertices.size();
+            if (n == 0) return {0.0, 0.0};
+            return {sum_x / n, sum_y / n};
         }
         cx /= total_area;
         cy /= total_area;

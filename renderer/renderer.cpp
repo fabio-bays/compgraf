@@ -44,7 +44,11 @@ enum DrawAlgorithm {
 TwoDHalfEdgeGeometry* g_geometry = nullptr;
 std::string g_command_input = "";
 // ATUALIZADO para incluir a tecla 3
-std::string g_command_output = "Teclas: [L] Labels, [1] Parametrico, [2] Bresenham, [3] Xiaolin Wu."; 
+const std::string guide_output_str = "Teclas: [L] Labels, [1] Parametrico, [2] Bresenham, [3] Xiaolin Wu."
+                                " [W-A-S-D] Translação, [E-Q] Rotação, [+ -] Zoom, [T-G] Refletir"
+                                " [U-J-H-K] Cisalhamento."
+                                " Para salvar, 'SALVAR nomedoarquivo'"; 
+std::string g_command_output = guide_output_str;
 bool g_show_labels = false;
 std::pair<double, double> centroid;
 DrawAlgorithm g_current_algorithm = PARAMETRIC; // Algoritmo padrão
@@ -523,22 +527,11 @@ void shear(float x, float y)
         glm::vec2 center(centroid.first, centroid.second);
         glm::vec4 vx(itr->second.first, itr->second.second, 0, 1.0f);
         glm::mat4 trans = glm::mat4(1.0f);
-        // A função glm::shear não existe. Vamos usar uma matriz de cisalhamento manual.
-        
-        // Matriz de cisalhamento em X
-        if (std::abs(x) > 1e-9) {
-            trans[1][0] = x; // Coluna 1, Linha 0 (glm é column-major)
-        }
-        // Matriz de cisalhamento em Y
-        if (std::abs(y) > 1e-9) {
-            trans[0][1] = y; // Coluna 0, Linha 1
-        }
-
-        // Aplicar em relação ao centroide
-        glm::mat4 moveToOrigin = glm::translate(glm::mat4(1.0f), glm::vec3(-center, 0.0f));
-        glm::mat4 moveBack = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f));
-        
-        vx = moveBack * trans * moveToOrigin * vx;
+        trans = glm::shear(trans, glm::vec3(1.0f, 1.0f, 0.0f), 
+                            glm::vec2(x, 0.0f),
+                            glm::vec2(y, 0.0f),
+                            glm::vec2(0.0f, 0.0f));
+        vx = trans * vx;
 
         g_geometry->update_vertex_pos(itr->first, vx.x, vx.y);
     }
@@ -546,7 +539,7 @@ void shear(float x, float y)
 }
 
 void keyboard(unsigned char key, int x, int y) {
-    
+    g_command_output = guide_output_str;
     switch (key) {
         case KEY_ESCAPE: glutLeaveMainLoop(); break;
         case KEY_ENTER: process_command(); break;
