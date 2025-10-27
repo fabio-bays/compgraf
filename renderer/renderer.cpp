@@ -252,9 +252,7 @@ void draw_line_bresenham(double x1d, double y1d, double x2d, double y2d) {
 
 
 /**
- * @brief Implementação interna do Xiaolin Wu com inteiros (baseado no exemplo).
- * (Esta é a implementação padrão/corrigida, pois o exemplo do professor
- * tinha um bug ao calcular a intensidade dos pontos finais).
+ * @brief Implementação interna do Xiaolin Wu com inteiros 
  */
 void xiaolin_wu_integer_impl(int x0, int y0, int x1, int y1) {
     
@@ -361,8 +359,7 @@ void display() {
                 try {
                     const auto& pos1 = vertices.at(vertex_pair.first);
                     const auto& pos2 = vertices.at(vertex_pair.second);
-                    
-                    // --- AQUI ESTÁ A LÓGICA DE SELEÇÃO ---
+                                        
                     switch (g_current_algorithm) {
                         case PARAMETRIC:
                             // Define a cor sólida (sem alfa)
@@ -591,7 +588,6 @@ void keyboard(unsigned char key, int x, int y) {
             g_command_output = g_show_labels ? "Labels de ID ativados." : "Labels de ID desativados.";
             break;
 
-        // --- NOVAS TECLAS PARA MUDAR ALGORITMO ---
         case '1':
             g_current_algorithm = PARAMETRIC;
             g_command_output = "Algoritmo: Parametrico";
@@ -600,7 +596,7 @@ void keyboard(unsigned char key, int x, int y) {
             g_current_algorithm = BRESENHAM;
             g_command_output = "Algoritmo: Bresenham";
             break;
-        case '3': // Habilitado para Xiaolin Wu
+        case '3':
             g_current_algorithm = XIAOLIN_WU;
             g_command_output = "Algoritmo: Xiaolin Wu (AA)";
             break;
@@ -618,7 +614,7 @@ void keyboard(unsigned char key, int x, int y) {
 
 void start_renderer(int argc, char* argv[], TwoDHalfEdgeGeometry& geometry) {
     glutInit(&argc, argv);
-    // ATUALIZADO para incluir GLUT_ALPHA para o Xiaolin Wu
+    
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_ALPHA); 
     glutInitWindowSize(800, 600);
     glutCreateWindow("Visualizador Interativo .obj");
@@ -655,7 +651,6 @@ void start_renderer(int argc, char* argv[], TwoDHalfEdgeGeometry& geometry) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Dica para o OpenGL priorizar qualidade no anti-aliasing (opcional)
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
     glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
     glEnable(GL_POINT_SMOOTH); // Habilita anti-aliasing para pontos (bom para o Wu)
