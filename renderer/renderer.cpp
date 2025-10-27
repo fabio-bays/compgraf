@@ -145,47 +145,69 @@ void draw_line_parametric(double x1, double y1, double x2, double y2) {
  * @brief Desenha uma linha usando o Algoritmo de Bresenham (para todos os octantes).
  */
 void draw_line_bresenham(double x1d, double y1d, double x2d, double y2d) {
-    // A lógica de Bresenham funciona melhor com passos discretos (inteiros).
-    // Mas para desenhar no mundo (world-space), precisamos manter os doubles.
     
-    double dx = x2d - x1d;
-    double dy = y2d - y1d;
+    // 1. Converte/Arredonda as coordenadas de mundo (double) para
+    //    a grade de inteiros mais próxima.
+    int x0 = static_cast<int>(std::round(x1d));
+    int y0 = static_cast<int>(std::round(y1d));
+    int x1 = static_cast<int>(std::round(x2d));
+    int y1 = static_cast<int>(std::round(y2d));
 
-    const int num_steps = 50; // Usando o mesmo número de passos da paramétrica.
+    // 2. Lógica de inteiros pura (do bresenham.c)
+    
+    // define os deltas para x e y
+    int dx = x1 - x0;
+    int dy = y1 - y0;
 
+    // definir os movimentos de eixo para x e y 
+    int sx = (dx >= 0) ? 1 : -1;
+    int sy = (dy >= 0) ? 1 : -1;
 
-    // Se a linha for muito curta (ou um ponto), desenha um ponto e sai.
-    // Usamos uma pequena tolerância (epsilon) para comparação de float.
-    if (std::abs(dx) < 1e-6 && std::abs(dy) < 1e-6) {
-        glBegin(GL_POINTS);
-        glVertex2d(x1d, y1d);
-        glEnd();
-        return;
-    }
+    dx = std::abs(dx);
+    dy = std::abs(dy);
 
-    double x_inc = dx / static_cast<double>(num_steps);
-    double y_inc = dy / static_cast<double>(num_steps);
-
-    double x = x1d;
-    double y = y1d;
-
+    // definir os pontos iniciais
+    int x = x0;
+    int y = y0;
+    
     glBegin(GL_POINTS);
-    // Plota o primeiro ponto
-    glVertex2d(x, y);
     
-    // O algoritmo de Bresenham/DDA calcula os próximos pontos
-    // Arredondar aqui é a chave: decidimos qual *pixel* (ou passo)
-    // está mais próximo, mas plotamos no mundo `double`.
-    // Para este caso, um DDA simples é mais robusto que um Bresenham
-    // de inteiros puro, pois o mundo não é de inteiros.
+    // ponto inicial
+    glVertex2i(x,y); 
     
-    // Plotamos os 'num_steps' pontos restantes (totalizando num_steps + 1)
-    for (int i = 0; i < num_steps; ++i) {
-        x += x_inc;
-        y += y_inc;
-        // Plotamos o ponto real em double, não um int arredondado.
-        glVertex2d(x, y);
+    // definir o movimento  
+    if (dx > dy) {
+        // definir nabla (delta inverso) ou Pk (parâmetro de decisão)
+        int d_inv = 2 * dy - dx; // Corrigido do exemplo (Pk inicial)
+        
+        for (int i = 0; i < dx; i++) {      
+            x += sx;
+            if (d_inv < 0) {
+                d_inv += 2 * dy;
+            } else {
+                y += sy;
+                d_inv += 2 * (dy - dx);
+            }
+            // demais pontos
+            glVertex2i(x,y);
+        }  
+    }  else {    
+        // definir nabla (delta inverso) ou Pk
+        int d_inv = 2 * dx - dy; // Corrigido do exemplo (Pk inicial)
+
+        for (int i = 0; i < dy; i++) {
+            y += sy;
+            if (d_inv < 0) {
+                d_inv += 2 * dx;
+            } else {
+                x += sx;
+                d_inv += 2 * (dx - dy);
+            }
+            // demais pontos
+            glVertex2i(x,y);
+        }
     }
+    
     glEnd();
 }
 
