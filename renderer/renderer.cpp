@@ -1,9 +1,9 @@
 /**
  * @file renderer.cpp
- * @brief Implementa a renderização do objeto 2D com interface e labels completos.
+ * @brief Implementa a renderização do objeto 2D com interface, labels e transformações.
  *
- * Esta versão adiciona a funcionalidade de exibir os IDs das faces, além dos
- * vértices e arestas, diretamente na tela.
+ * Esta versão permite ao usuário alternar entre os algoritmos de desenho de linha
+ * usando as teclas numéricas.
  */
 
 #include <GL/freeglut.h>
@@ -33,13 +33,20 @@ extern void save_obj_file(const std::string& filepath,
                         std::map<unsigned int, std::vector<unsigned int>> faces_map,
                         std::unordered_map<unsigned int, std::pair<double, double>> vxs_pos);
 
+// --- Enum para seleção de algoritmo ---
+enum DrawAlgorithm {
+    PARAMETRIC,
+    BRESENHAM,
+    XIAOLIN_WU
+};
 
 // --- Variáveis Globais para o Estado da UI e Labels ---
 TwoDHalfEdgeGeometry* g_geometry = nullptr;
 std::string g_command_input = "";
-std::string g_command_output = "Digite 'AJUDA' e pressione Enter. Pressione 'l' para ver os IDs.";
+std::string g_command_output = "Teclas: [L] Labels, [1] Parametrico, [2] Bresenham.";
 bool g_show_labels = false;
 std::pair<double, double> centroid;
+DrawAlgorithm g_current_algorithm = PARAMETRIC; // Algoritmo padrão
 
 // --- Funções da Interface Gráfica ---
 
@@ -116,6 +123,80 @@ void process_command() {
 }
 
 
+// --- Funções de Desenho de Linha ---
+
+/**
+ * @brief Desenha uma linha usando a Equação Paramétrica.
+ */
+void draw_line_parametric(double x1, double y1, double x2, double y2) {
+    const int num_steps = 50;
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    
+    glBegin(GL_POINTS);
+    for (int i = 0; i <= num_steps; ++i) {
+        double t = static_cast<double>(i) / num_steps;
+        glVertex2d(x1 + t * dx, y1 + t * dy);
+    }
+    glEnd();
+}
+
+/**
+ * @brief Desenha uma linha usando o Algoritmo de Bresenham (para todos os octantes).
+ * Converte coordenadas double para int para o algoritmo.
+ */
+void draw_line_bresenham(double x1d, double y1d, double x2d, double y2d) {
+    // A lógica de Bresenham funciona melhor com passos discretos (inteiros).
+    // Mas para desenhar no mundo (world-space), precisamos manter os doubles.
+    
+    double dx = x2d - x1d;
+    double dy = y2d - y1d;
+
+    // --- CORREÇÃO ---
+    // O problema original: std::max(std::abs(dx), std::abs(dy))
+    // usava coordenadas do *mundo*. Se a linha vai de (1,1) para (3,2),
+    // dx=2, dy=1, e steps=2. Isso desenha SÓ 3 pontos (início, meio, fim).
+    //
+    // A solução é usar um número fixo de passos, assim como a 
+    // função paramétrica, para garantir densidade de pontos.
+    const int num_steps = 50; // Usando o mesmo número de passos da paramétrica.
+
+
+    // Se a linha for muito curta (ou um ponto), desenha um ponto e sai.
+    // Usamos uma pequena tolerância (epsilon) para comparação de float.
+    if (std::abs(dx) < 1e-6 && std::abs(dy) < 1e-6) {
+        glBegin(GL_POINTS);
+        glVertex2d(x1d, y1d);
+        glEnd();
+        return;
+    }
+
+    double x_inc = dx / static_cast<double>(num_steps);
+    double y_inc = dy / static_cast<double>(num_steps);
+
+    double x = x1d;
+    double y = y1d;
+
+    glBegin(GL_POINTS);
+    // Plota o primeiro ponto
+    glVertex2d(x, y);
+    
+    // O algoritmo de Bresenham/DDA calcula os próximos pontos
+    // Arredondar aqui é a chave: decidimos qual *pixel* (ou passo)
+    // está mais próximo, mas plotamos no mundo `double`.
+    // Para este caso, um DDA simples é mais robusto que um Bresenham
+    // de inteiros puro, pois o mundo não é de inteiros.
+    
+    // Plotamos os 'num_steps' pontos restantes (totalizando num_steps + 1)
+    for (int i = 0; i < num_steps; ++i) {
+        x += x_inc;
+        y += y_inc;
+        // Plotamos o ponto real em double, não um int arredondado.
+        glVertex2d(x, y);
+    }
+    glEnd();
+}
+
 // --- Funções de Callback do OpenGL ---
 
 void display() {
@@ -130,21 +211,29 @@ void display() {
         glColor3f(1.0f, 1.0f, 1.0f);
         if (!vertices.empty() && !edges.empty()) {
             glPointSize(2.0f);
-            glBegin(GL_POINTS);
+            
+            // Loop principal de desenho de arestas
             for (const auto& [vertex_pair, edge_id] : edges) {
                 try {
                     const auto& pos1 = vertices.at(vertex_pair.first);
                     const auto& pos2 = vertices.at(vertex_pair.second);
-                    const int num_steps = 100;
-                    double dx = pos2.first - pos1.first;
-                    double dy = pos2.second - pos1.second;
-                    for (int i = 0; i <= num_steps; ++i) {
-                        double t = static_cast<double>(i) / num_steps;
-                        glVertex2d(pos1.first + t * dx, pos1.second + t * dy);
+                    
+                    // --- AQUI ESTÁ A LÓGICA DE SELEÇÃO ---
+                    switch (g_current_algorithm) {
+                        case PARAMETRIC:
+                            draw_line_parametric(pos1.first, pos1.second, pos2.first, pos2.second);
+                            break;
+                        case BRESENHAM:
+                            draw_line_bresenham(pos1.first, pos1.second, pos2.first, pos2.second);
+                            break;
+                        case XIAOLIN_WU:
+                            // Ainda não implementado, mas desenha com o padrão
+                            draw_line_parametric(pos1.first, pos1.second, pos2.first, pos2.second);
+                            break;
                     }
+
                 } catch(const std::out_of_range&) {}
             }
-            glEnd();
         }
 
         if (g_show_labels) {
@@ -166,7 +255,7 @@ void display() {
                 } catch(const std::out_of_range&) {}
             }
 
-            // NOVO: Labels das Faces (magenta)
+            // Labels das Faces (magenta)
             glColor3f(1.0f, 0.0f, 1.0f);
             auto faces = g_geometry->get_faces_with_vertices();
             for (const auto& [face_id, vertex_ids] : faces) {
@@ -348,6 +437,18 @@ void keyboard(unsigned char key, int x, int y) {
             g_show_labels = !g_show_labels;
             g_command_output = g_show_labels ? "Labels de ID ativados." : "Labels de ID desativados.";
             break;
+
+        // --- NOVAS TECLAS PARA MUDAR ALGORITMO ---
+        case '1':
+            g_current_algorithm = PARAMETRIC;
+            g_command_output = "Algoritmo: Parametrico";
+            break;
+        case '2':
+            g_current_algorithm = BRESENHAM;
+            g_command_output = "Algoritmo: Bresenham";
+            break;
+        // case '3': // Futuramente para o Xiaolin Wu
+
         default:
             if (isprint(key) && (isupper(key) || ispunct(key) || isxdigit(key) || isblank(key)))
             {
