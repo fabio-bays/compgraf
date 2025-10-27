@@ -143,7 +143,6 @@ void draw_line_parametric(double x1, double y1, double x2, double y2) {
 
 /**
  * @brief Desenha uma linha usando o Algoritmo de Bresenham (para todos os octantes).
- * Converte coordenadas double para int para o algoritmo.
  */
 void draw_line_bresenham(double x1d, double y1d, double x2d, double y2d) {
     // A lógica de Bresenham funciona melhor com passos discretos (inteiros).
@@ -152,13 +151,6 @@ void draw_line_bresenham(double x1d, double y1d, double x2d, double y2d) {
     double dx = x2d - x1d;
     double dy = y2d - y1d;
 
-    // --- CORREÇÃO ---
-    // O problema original: std::max(std::abs(dx), std::abs(dy))
-    // usava coordenadas do *mundo*. Se a linha vai de (1,1) para (3,2),
-    // dx=2, dy=1, e steps=2. Isso desenha SÓ 3 pontos (início, meio, fim).
-    //
-    // A solução é usar um número fixo de passos, assim como a 
-    // função paramétrica, para garantir densidade de pontos.
     const int num_steps = 50; // Usando o mesmo número de passos da paramétrica.
 
 
