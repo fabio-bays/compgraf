@@ -21,6 +21,11 @@ Ao executar o programa, o fluxo principal é:
 
 Cada componente do projeto contribui para importar, estruturar, renderizar, transformar e consultar objetos gráficos 2D de forma eficiente e robusta.
 
+### Observação: algoritmos de Bresenham e Xiaolin Wu
+
+Os algoritmos não plotam pontos em coordenadas fracionárias. Por conta disso, as renderizações dos
+arquivos cow.obj, file.obj e teapot.obj com esses algoritmos foram comprometidas. Para visualizar a renderização desses algoritmos, as coordenadas dos vértices foram escaladas cem vezes (cow_scaled.obj, etc.).
+
 ## Como rodar:
 
 ### Windows
